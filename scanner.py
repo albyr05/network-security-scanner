@@ -36,8 +36,43 @@ def scan_network (base_ip):
 
     return active_hosts
 
+
+def scan_ports(ip, ports = [21, 22, 23, 80, 443, 3306, 8080]): #FTP, SSH, telnet, HTTP, HTTPS , MySQL, webapp
+    open_ports = []
+    for port in ports:
+        try: 
+            sock = socket.socket (socket.AF_INET, socket.SOCK_STREAM) #looking for an IPv4 using TCP protocol
+            sock.settimeout(0.2) #wait a second
+            result = sock.connect_ex((ip, port))    #trying the connection (three way handshake)
+            
+            if result == 0:     #the port was open
+                print(f"[+] Port {port} aperta")
+                try: 
+
+                    banner = sock.recv(1024).decode("utf-8", errors = "ignore").strip()
+                    if banner:
+                        print(f"\t BANNER: {banner}")
+
+                except: pass
+
+                open_ports.append(port)
+
+            sock.close()
+
+        except: pass
+    return open_ports
+
+
 if __name__ == "__main__":
-    base_ip = "172.21.73"
+    base_ip = "172.20.10"
     result = scan_network(base_ip)
     print(f"\n{len(result)} active host found")
+    print("\nScanning ports...")
+    for ip in result:
+        print(f"\n-- Host {ip}...\n")
+        ports = scan_ports(ip)
+        if len(ports) == 0:
+            print("No ports open found for this host\n ")
+
+    
 
