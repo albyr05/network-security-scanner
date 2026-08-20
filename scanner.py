@@ -59,6 +59,7 @@ def scan_ports(ip, ports=(21, 22, 23, 80, 443, 3306, 8080)):  # FTP, SSH, telnet
                     
                 except Exception:
                     pass  # no banner received, that's fine — banner stays ""
+                
                 with lock:
                     open_ports.append({
                         "port": port,
@@ -102,9 +103,26 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+    #input validation
+    try: 
+        network = ipaddress.ip_network(args.network_cidr, strict=False)
+        if network.version != 4:
+            print(f"Only IPv4 are supported")
+            raise SystemExit(2)
+        if str(network) != args.network_cidr:
+            print(f"Network normalized to {str(network)}")
 
-    active_hosts = scan_network(ipaddress.ip_network(args.network_cidr).hosts(), max_workers=args.workers)
+    except ValueError:
+        print(f"Insert ip {args.network_cidr} isn't valid, make sure IPv4 valid cidr format")
+        raise SystemExit(2)
     
+    if args.workers < 1:
+        print("--workers parameters must be at least 1")
+        raise SystemExit(2)
+
+    #check passed, can now scan network
+    active_hosts = scan_network(network.hosts(), max_workers=args.workers)
+
     result = []
     for ip in active_hosts:
         ports = scan_ports(ip)
