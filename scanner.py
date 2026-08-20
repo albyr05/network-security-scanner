@@ -9,7 +9,7 @@ from generate_reports import generate_report
 
 def ping(ip):  # receiving an ip address as input
     result = subprocess.run(
-        ["ping", "-c", "1", "-W", "1", ip],  # checking if the address is active or not
+        ["ping", "-c", "1", "-W", "1000", ip],  # checking if the address is active or not
         stdout=subprocess.DEVNULL,  # ignoring the output
         stderr=subprocess.DEVNULL
     )
@@ -33,7 +33,7 @@ def scan_network(network_hosts, max_workers=50):
     return sorted(active_hosts)
 
 
-def scan_ports(ip, ports=(21, 22, 23, 80, 443, 3306, 8080)):  # FTP, SSH, telnet, HTTP, HTTPS, MySQL, webapp
+def scan_ports(ip, ports):  # FTP, SSH, telnet, HTTP, HTTPS, MySQL, webapp
     open_ports = []
     lock = threading.Lock()
     
@@ -85,7 +85,7 @@ def parse_args():
     )
     parser.add_argument(
         "network_cidr",
-        help="IPv4 network in CIDR notation”"
+        help="IPv4 network in CIDR notation"
     )
     parser.add_argument(
         "-o", "--output",
@@ -97,6 +97,12 @@ def parse_args():
         type=int,
         default=50,
         help="Max concurrent threads for host discovery (default: 50)"
+    )
+    parser.add_argument(
+        "-p", "--ports",
+        type=str,
+        default="21, 22, 23 , 80, 443, 3306, 8080",
+        help="list of ports to scan (default: 21, 22, 23, 80, 443, 3306, 8080)"
     )
     return parser.parse_args()
 
@@ -119,15 +125,26 @@ if __name__ == "__main__":
     if args.workers < 1:
         print("--workers parameters must be at least 1")
         raise SystemExit(2)
-
+    
+    try:
+        selected_ports = [int(p.strip()) for p in args.ports.split(",")]
+        for p in selected_ports:
+            if not (0 < p <= 65535): 
+                print("ports number must range from 1 to 65535")
+                raise SystemExit(2)
+    except ValueError: 
+        print("invalid port detected")
+        raise SystemExit(2)
+    
     #check passed, can now scan network
     active_hosts = scan_network(network.hosts(), max_workers=args.workers)
 
     result = []
+    selected_ports = sorted(set(selected_ports))
     for ip in active_hosts:
-        ports = scan_ports(ip)
+        open_ports = scan_ports(ip, selected_ports)
         result.append({
             "ip": str(ip),
-            "ports": ports
+            "ports": open_ports
         })
     generate_report(result, filename=args.output)
