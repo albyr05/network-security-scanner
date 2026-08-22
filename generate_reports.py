@@ -1,4 +1,5 @@
 import json
+import html
 
 def generate_report_json(results, filename="report.json"):
     with open(filename, "w") as f:
@@ -6,7 +7,7 @@ def generate_report_json(results, filename="report.json"):
     return
 
 def generate_report_html(results, filename="report.html"):
-    html = """
+    html_content = """
     <html>
     <head>
         <title>Network Scan Report</title>
@@ -23,17 +24,18 @@ def generate_report_html(results, filename="report.html"):
     """
 
     for host in results:
-        html += f"<div class='host'><h2>Host: {host['ip']}</h2>"
+        html_content += f"<div class='host'><h2>Host: {host['ip']}</h2>"
         if host['ports']:
             for p in host['ports']:
-                html += f"<p class='port'><span class='open'>[+] Port {p['port']}</span> — Banner: {p['banner']}</p>"
+                filtered_banner = html.escape(p['banner'])
+                html_content += f"<p class='port'><span class='open'>[+] Port {p['port']}</span> — Banner: {filtered_banner}</p>"
         else:
-            html += "<p>No open ports found</p>"
-        html += "</div>"
+            html_content += "<p>No open ports found</p>"
+        html_content += "</div>"
 
-    html += "</body></html>"
+    html_content += "</body></html>"
 
     with open(filename, "w") as f:
-        f.write(html)
+        f.write(html_content)
 
     print(f"\n[+] Report saved as {filename}")

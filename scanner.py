@@ -66,7 +66,7 @@ def scan_ports(ip, ports, timeout):  # FTP, SSH, telnet, HTTP, HTTPS, MySQL, web
                             "port": port,
                             "banner": banner if banner else "N/A"
                         })
-                        
+
         except Exception:
             pass
 
@@ -162,6 +162,7 @@ if __name__ == "__main__":
             "ip": str(ip),
             "ports": open_ports
         })
+        
     if args.format == "html":
         if args.output == None:
             args.output = "report.html"
