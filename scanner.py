@@ -33,7 +33,7 @@ def scan_network(network_hosts, max_workers=50):
     return sorted(active_hosts)
 
 
-def scan_ports(ip, ports):  # FTP, SSH, telnet, HTTP, HTTPS, MySQL, webapp
+def scan_ports(ip, ports, timeout):  # FTP, SSH, telnet, HTTP, HTTPS, MySQL, webapp
     open_ports = []
     lock = threading.Lock()
     
@@ -41,7 +41,7 @@ def scan_ports(ip, ports):  # FTP, SSH, telnet, HTTP, HTTPS, MySQL, webapp
         banner = ""  # initialized BEFORE the try, so it always exists
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # looking for an IPv4 using TCP protocol
-            sock.settimeout(0.5)  # wait half a second
+            sock.settimeout(timeout)  # wait the custom timeout (0.5 second default)
             result = sock.connect_ex((str(ip), port))  # trying the connection (three way handshake)
 
             if result == 0:  # the port was open
@@ -104,6 +104,12 @@ def parse_args():
         default="21, 22, 23 , 80, 443, 3306, 8080",
         help="list of ports to scan (default: 21, 22, 23, 80, 443, 3306, 8080)"
     )
+    parser.add_argument(
+        "-t", "--timeout",
+        type = float,
+        default=0.5,
+        help="custom timeout to wait for each port"
+    )
     return parser.parse_args()
 
 
@@ -135,6 +141,9 @@ if __name__ == "__main__":
     except ValueError: 
         print("invalid port detected")
         raise SystemExit(2)
+    if (args.timeout <= 0.0):
+        print("timeout must be greater than 0")
+        raise SystemExit(2)
     
     #check passed, can now scan network
     active_hosts = scan_network(network.hosts(), max_workers=args.workers)
@@ -142,7 +151,7 @@ if __name__ == "__main__":
     result = []
     selected_ports = sorted(set(selected_ports))
     for ip in active_hosts:
-        open_ports = scan_ports(ip, selected_ports)
+        open_ports = scan_ports(ip, selected_ports, args.timeout)
         result.append({
             "ip": str(ip),
             "ports": open_ports
