@@ -4,7 +4,7 @@ import threading
 import argparse
 import ipaddress
 from concurrent.futures import ThreadPoolExecutor
-from generate_reports import generate_report
+from generate_reports import generate_report_html, generate_report_json
 
 
 def ping(ip):  # receiving an ip address as input
@@ -40,39 +40,38 @@ def scan_ports(ip, ports, timeout):  # FTP, SSH, telnet, HTTP, HTTPS, MySQL, web
     def check_port(port):
         banner = ""  # initialized BEFORE the try, so it always exists
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # looking for an IPv4 using TCP protocol
-            sock.settimeout(timeout)  # wait the custom timeout (0.5 second default)
-            result = sock.connect_ex((str(ip), port))  # trying the connection (three way handshake)
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock: # looking for an IPv4 using TCP protocol
+                sock.settimeout(timeout)  # wait the custom timeout (0.5 second default)
+                result = sock.connect_ex((str(ip), port))  # trying the connection (three way handshake)
 
-            if result == 0:  # the port was open
-                print(f"[+] Port {port} aperta")
-                try:
-                    if port == 80:
-                        request = f"GET / HTTP/1.1\r\nHost: {ip}\r\nConnection: close\r\n\r\n"
-                        sock.send(request.encode())
-                        answer = sock.recv(1024).decode("utf-8", errors="ignore").strip() #getting the answer of the raw http request
-                        for l in answer.split("\n"):
-                            if l.startswith("Server"):
-                                banner = l.split(":")[1].strip()
-                    else:
-                        banner = sock.recv(1024).decode("utf-8", errors="ignore").strip() #getting the banner of general ports
+                if result == 0:  # the port was open
+                    print(f"[+] Port {port} aperta")
+                    try:
+                        if port == 80:
+                            request = f"GET / HTTP/1.1\r\nHost: {ip}\r\nConnection: close\r\n\r\n"
+                            sock.send(request.encode())
+                            answer = sock.recv(1024).decode("utf-8", errors="ignore").strip() #getting the answer of the raw http request
+                            for l in answer.split("\n"):
+                                if l.startswith("Server"):
+                                    banner = l.split(":")[1].strip()
+                        else:
+                            banner = sock.recv(1024).decode("utf-8", errors="ignore").strip() #getting the banner of general ports
+                        
+                    except Exception:
+                        
+                        pass  # no banner received, that's fine — banner stays ""
                     
-                except Exception:
-                    pass  # no banner received, that's fine — banner stays ""
-                
-                with lock:
-                    open_ports.append({
-                        "port": port,
-                        "banner": banner if banner else "N/A"
-                    })
-
-            sock.close()  # closing the socket
-
+                    with lock:
+                        open_ports.append({
+                            "port": port,
+                            "banner": banner if banner else "N/A"
+                        })
+                        
         except Exception:
             pass
 
     # scanning ports for a single host in parallel too
-    with ThreadPoolExecutor(max_workers=len(ports)) as executor:
+    with ThreadPoolExecutor(max_workers=min(len(ports),100)) as executor:
         executor.map(check_port, ports)
         
 
@@ -89,7 +88,7 @@ def parse_args():
     )
     parser.add_argument(
         "-o", "--output",
-        default="report.html",
+        default=None,
         help="Output HTML report filename (default: report.html)"
     )
     parser.add_argument(
@@ -108,7 +107,14 @@ def parse_args():
         "-t", "--timeout",
         type = float,
         default=0.5,
-        help="custom timeout to wait for each port"
+        help="custom timeout to wait for each port (default: 0.5)"
+    )
+    parser.add_argument(
+        "-f", "--format",
+        type=str,
+        choices=["html", "json"],
+        default="html",
+        help="choose html or json format (default: html)"
     )
     return parser.parse_args()
 
@@ -156,4 +162,11 @@ if __name__ == "__main__":
             "ip": str(ip),
             "ports": open_ports
         })
-    generate_report(result, filename=args.output)
+    if args.format == "html":
+        if args.output == None:
+            args.output = "report.html"
+        generate_report_html(result, filename=args.output)
+    else:
+        if args.output == None:
+            args.output = "report.json"
+        generate_report_json(result, filename=args.output)

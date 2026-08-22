@@ -1,4 +1,11 @@
-def generate_report(results, filename="report.html"):
+import json
+
+def generate_report_json(results, filename="report.json"):
+    with open(filename, "w") as f:
+        json.dump(results, f, sort_keys=True, indent=4)
+    return
+
+def generate_report_html(results, filename="report.html"):
     html = """
     <html>
     <head>
